@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stack & Queue Visualization — DSA Visualizer</title>
+  <style>
+    :root{
+      --bg: #f4f4f4; --card: #fff; --text:#111; --muted:#666; --accent:#4CAF50; --accent-2:#2196F3;
+    }
+    [data-theme="dark"]{ --bg:#0f1724; --card:#0b1220; --text:#e6eef8; --muted:#9fb0d0; --accent:#48d388; --accent-2:#5fb6ff }
+
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family:Inter, system-ui, Arial, sans-serif; background:var(--bg); color:var(--text);
+      display:flex; flex-direction:column; align-items:center; gap:18px; padding:24px;
+    }
+
+    header{display:flex; gap:12px; align-items:center; width:100%; max-width:1100px; justify-content:space-between}
+    h1{font-size:20px; margin:0}
+
+    .controls{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+    .controls input{padding:8px 10px; border-radius:8px; border:1px solid rgba(0,0,0,0.1); width:150px}
+    .controls button{padding:8px 12px; border-radius:8px; border:none; cursor:pointer; background:var(--accent); color:#fff}
+    .controls button.secondary{background:var(--accent-2)}
+
+    .main{display:grid; grid-template-columns:repeat(3,1fr); gap:18px; width:100%; max-width:1100px}
+
+    .card{background:var(--card); border-radius:12px; padding:14px; box-shadow:0 6px 18px rgba(2,6,23,0.06); min-height:360px; display:flex; flex-direction:column}
+    .card h2{margin:0 0 8px 0; font-size:16px}
+
+    .visual{flex:1; border:2px dashed rgba(0,0,0,0.06); border-radius:10px; padding:12px; display:flex; align-items:flex-end; gap:8px; overflow:auto; position:relative}
+
+    /* Stack specific */
+    .stack{width:220px; height:300px; border:2px solid rgba(0,0,0,0.08); background:transparent; display:flex; flex-direction:column-reverse; padding:8px; align-items:center}
+    .elem{min-width:160px; padding:10px 12px; margin:6px 0; border-radius:8px; background:var(--accent); color:#fff; text-align:center; transform-origin:center; box-shadow:0 4px 10px rgba(2,6,23,0.08);}
+    .elem.top{box-shadow:0 0 18px rgba(72,211,136,0.35); outline:2px solid rgba(72,211,136,0.08)}
+
+    /* Counter & messages */
+    .meta{display:flex; gap:10px; align-items:center; margin-top:8px}
+    .badge{background:rgba(0,0,0,0.05); padding:6px 8px; border-radius:8px; font-size:13px}
+    .msg{flex:1; padding:8px 10px; border-radius:8px; background:rgba(0,0,0,0.03); color:var(--muted); font-size:13px}
+
+    /* Queue */
+    .queue{display:flex; gap:8px; align-items:center; padding:8px; overflow:auto}
+    .q-elem{min-width:80px; padding:8px 10px; border-radius:8px; background:var(--accent-2); color:white; text-align:center}
+
+    /* Linked list */
+    .ll{display:flex; gap:10px; align-items:center; padding:8px; overflow:auto}
+    .node{min-width:80px; padding:10px; border-radius:8px; background:linear-gradient(90deg, rgba(255,255,255,0.02), rgba(0,0,0,0.02)); border:1px solid rgba(0,0,0,0.06);}
+    .arrow{font-weight:bold}
+
+    /* Dark toggle */
+    .toggle{padding:6px 8px; border-radius:8px; cursor:pointer; border:1px solid rgba(0,0,0,0.06)}
+
+    /* Animations */
+    .elem{animation:pushIn 300ms ease}
+    .q-elem{animation:enqueue 300ms ease}
+    .node{animation:nodeIn 300ms ease}
+
+    @keyframes pushIn{from{transform:translateY(20px) scale(0.98); opacity:0} to{transform:none; opacity:1}}
+    @keyframes enqueue{from{transform:translateX(-20px); opacity:0} to{transform:none; opacity:1}}
+    @keyframes nodeIn{from{transform:translateY(-8px); opacity:0} to{transform:none; opacity:1}}
+
+    /* responsive */
+    @media (max-width:980px){ .main{grid-template-columns:1fr} .stack{width:100%} }
+  </style>
+</head>
+<body data-theme="light">
+  <header>
+    <h1>DSA Visualizer — Stack • Queue • LinkedList</h1>
+    <div style="display:flex; gap:8px; align-items:center">
+      <div class="toggle" id="themeToggle">Toggle Dark</div>
+      <div class="badge" id="stackSize">Stack: 0</div>
+      <div class="badge" id="queueSize">Queue: 0</div>
+      <div class="badge" id="llSize">LinkedList: 0</div>
+    </div>
+  </header>
+
+  <div class="controls">
+    <input id="valueInput" placeholder="value (string or number)" />
+    <button onclick="pushStack()">Push Stack</button>
+    <button onclick="popStack()" class="secondary">Pop Stack</button>
+    <button onclick="enqueue()">Enqueue</button>
+    <button onclick="dequeue()" class="secondary">Dequeue</button>
+    <button onclick="llInsert()">LL Insert End</button>
+    <button onclick="llRemove()" class="secondary">LL Remove End</button>
+    <button onclick="clearAll()">Clear All</button>
+  </div>
+
+  <div class="main">
+    <section class="card">
+      <h2>Stack (LIFO)</h2>
+      <div class="visual" id="stackArea">
+        <div class="stack" id="stackBox"></div>
+      </div>
+      <div class="meta">
+        <div class="msg" id="stackMsg">Info: Use Push / Pop. Top element is highlighted.</div>
+        <div class="badge">Max: 10</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Queue (FIFO)</h2>
+      <div class="visual" id="queueArea">
+        <div class="queue" id="queueBox"></div>
+      </div>
+      <div class="meta">
+        <div class="msg" id="queueMsg">Info: Enqueue adds to rear, Dequeue removes from front.</div>
+        <div class="badge">Max: 12</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>LinkedList (Singly — visualized as nodes)</h2>
+      <div class="visual" id="llArea">
+        <div class="ll" id="llBox"></div>
+      </div>
+      <div class="meta">
+        <div class="msg" id="llMsg">Info: Insert/Remove at end for demo. Nodes show arrows.</div>
+        <div class="badge">--</div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // Data structures
+    const stack = [];
+    const queue = [];
+    const llist = [];
+
+    // Limits
+    const STACK_MAX = 10;
+    const QUEUE_MAX = 12;
+
+    // Elements
+    const stackBox = document.getElementById('stackBox');
+    const queueBox = document.getElementById('queueBox');
+    const llBox = document.getElementById('llBox');
+
+    const stackSizeBadge = document.getElementById('stackSize');
+    const queueSizeBadge = document.getElementById('queueSize');
+    const llSizeBadge = document.getElementById('llSize');
+
+    const stackMsg = document.getElementById('stackMsg');
+    const queueMsg = document.getElementById('queueMsg');
+    const llMsg = document.getElementById('llMsg');
+
+    // Theme toggle
+    document.getElementById('themeToggle').addEventListener('click', ()=>{
+      const root = document.body;
+      root.dataset.theme = (root.dataset.theme === 'light') ? 'dark' : 'light';
+    });
+
+    function renderStack(){
+      stackBox.innerHTML='';
+      for(let i=0;i<stack.length;i++){
+        const el = document.createElement('div');
+        el.className='elem';
+        el.textContent = stack[i];
+        if(i === stack.length-1) el.classList.add('top');
+        stackBox.appendChild(el);
+      }
+      stackSizeBadge.textContent = `Stack: ${stack.length}`;
+    }
+
+    function renderQueue(){
+      queueBox.innerHTML='';
+      for(let i=0;i<queue.length;i++){
+        const el = document.createElement('div');
+        el.className='q-elem';
+        el.textContent = queue[i];
+        queueBox.appendChild(el);
+      }
+      queueSizeBadge.textContent = `Queue: ${queue.length}`;
+    }
+
+    function renderLL(){
+      llBox.innerHTML='';
+      llist.forEach((v,i)=>{
+        const n = document.createElement('div');
+        n.className='node';
+        n.textContent = v;
+        llBox.appendChild(n);
+        if(i !== llist.length-1){
+          const arr = document.createElement('div'); arr.className='arrow'; arr.textContent='→';
+          llBox.appendChild(arr);
+        }
+      });
+      llSizeBadge.textContent = `LinkedList: ${llist.length}`;
+    }
+
+    // Operations with UI messages (no alerts)
+    function showMsg(el, text, kind='info'){
+      el.textContent = text;
+      el.style.opacity = 1;
+      if(kind==='error'){
+        el.style.background = 'rgba(255,0,0,0.04)';
+      } else {
+        el.style.background = 'rgba(0,0,0,0.03)';
+      }
+      setTimeout(()=>{ el.style.background = 'transparent'; }, 1600);
+    }
+
+    function pushStack(){
+      const val = document.getElementById('valueInput').value.trim();
+      if(!val){ showMsg(stackMsg,'Enter a value to push','error'); return; }
+      if(stack.length >= STACK_MAX){ showMsg(stackMsg,'Stack overflow — max reached','error'); return; }
+      stack.push(val);
+      renderStack();
+      showMsg(stackMsg, `Pushed: ${val}`);
+      document.getElementById('valueInput').value='';
+    }
+
+    function popStack(){
+      if(stack.length===0){ showMsg(stackMsg,'Stack underflow — nothing to pop','error'); return; }
+      const val = stack.pop();
+      // animate top removal
+      const topEl = stackBox.lastElementChild;
+      if(topEl){ topEl.style.transition = 'transform 300ms, opacity 300ms'; topEl.style.transform = 'scale(0.85) translateY(8px)'; topEl.style.opacity = '0'; setTimeout(()=>{ renderStack(); }, 300); }
+      else renderStack();
+      showMsg(stackMsg, `Popped: ${val}`);
+    }
+
+    function enqueue(){
+      const val = document.getElementById('valueInput').value.trim();
+      if(!val){ showMsg(queueMsg,'Enter value to enqueue','error'); return; }
+      if(queue.length >= QUEUE_MAX){ showMsg(queueMsg,'Queue overflow','error'); return; }
+      queue.push(val);
+      renderQueue();
+      showMsg(queueMsg, `Enqueued: ${val}`);
+      document.getElementById('valueInput').value='';
+    }
+
+    function dequeue(){
+      if(queue.length===0){ showMsg(queueMsg,'Queue underflow — nothing to dequeue','error'); return; }
+      const val = queue.shift();
+      // animate first child removal
+      const first = queueBox.firstElementChild;
+      if(first){ first.style.transition='transform 300ms, opacity 300ms'; first.style.transform='translateX(-20px)'; first.style.opacity='0'; setTimeout(()=>renderQueue(),300); }
+      else renderQueue();
+      showMsg(queueMsg, `Dequeued: ${val}`);
+    }
+
+    function llInsert(){
+      const val = document.getElementById('valueInput').value.trim();
+      if(!val){ showMsg(llMsg,'Enter value to insert into linked list','error'); return; }
+      llist.push(val);
+      renderLL();
+      showMsg(llMsg, `Inserted node: ${val}`);
+      document.getElementById('valueInput').value='';
+    }
+
+    function llRemove(){
+      if(llist.length===0){ showMsg(llMsg,'LinkedList empty — nothing to remove','error'); return; }
+      const val = llist.pop();
+      renderLL();
+      showMsg(llMsg, `Removed node: ${val}`);
+    }
+
+    function clearAll(){
+      stack.length=0; queue.length=0; llist.length=0; renderStack(); renderQueue(); renderLL();
+      showMsg(stackMsg,'Cleared all structures'); showMsg(queueMsg,''); showMsg(llMsg,'');
+    }
+
+    // initial render
+    renderStack(); renderQueue(); renderLL();
+
+    // keyboard: Enter to push/enqueue/insert (smart behavior)
+    document.getElementById('valueInput').addEventListener('keydown', (e)=>{
+      if(e.key==='Enter'){
+        // if Ctrl pressed -> enqueue
+        if(e.ctrlKey) enqueue();
+        else pushStack();
+      }
+    });
+
+    // Accessibility: highlight top on hover
+    stackBox.addEventListener('mouseover', ()=>{ const top= stackBox.lastElementChild; if(top) top.classList.add('top'); });
+    stackBox.addEventListener('mouseout', ()=>{ const top= stackBox.lastElementChild; if(top) top.classList.remove('top'); });
+  </script>
+</body>
+</html>
