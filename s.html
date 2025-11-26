@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Puzzle Solver —  Full Working</title>
+<style>
+  :root{--bg:#f3f6fb;--card:#fff;--accent:#0b76ff;--good:#28a745;--danger:#b91c1c}
+  *{box-sizing:border-box;font-family:Inter,system-ui,Arial}
+  body{margin:0;background:var(--bg);padding:18px;color:#072033}
+  .app{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:1fr 360px;gap:16px}
+  .card{background:var(--card);padding:14px;border-radius:10px;box-shadow:0 6px 22px rgba(2,6,23,.06)}
+  header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+  h1{font-size:18px;margin:0}
+  .meta{display:flex;gap:8px;align-items:center}
+  .badge{padding:6px 10px;border-radius:8px;background:rgba(0,0,0,.04)}
+  .types{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+  .type-btn{padding:8px;border-radius:8px;border:1px solid rgba(0,0,0,.06);cursor:pointer;background:transparent}
+  .type-btn.active{background:rgba(11,118,255,.08);border-color:rgba(11,118,255,.18)}
+  .puzzle-area{min-height:220px;border-radius:10px;background:linear-gradient(180deg,#35679a,#eef6ff);padding:12px;display:flex;flex-direction:column;gap:10px;align-items:center;justify-content:center}
+  input,select,button,textarea{font-family:inherit}
+  input[type=text], textarea{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(0,0,0,.08)}
+  .controls{display:flex;gap:8px;margin-top:8px}
+  button{padding:10px;border-radius:8px;border:none;background:var(--accent);color:rgba(6, 5, 5, 0.68);cursor:pointer}
+  button.ghost{background:#666}
+  .right{display:flex;flex-direction:column;gap:12px}
+  .leaderboard{max-height:320px;overflow:auto;border-radius:8px;padding:6px;border:1px solid rgba(0,0,0,.04)}
+  .row{display:flex;justify-content:space-between;padding:6px;border-bottom:1px dashed rgba(0,0,0,.03)}
+  .small{font-size:13px;color:#6b7b8c}
+  /* sudoku */
+  .sud-grid{display:grid;grid-template-columns:repeat(4,48px);gap:4px}
+  .cell{width:48px;height:48px;border-radius:6px;background:#fff;display:flex;align-items:center;justify-content:center;font-weight:600}
+  .cell input{width:100%;height:100%;text-align:center;border:none;font-weight:600;font-size:18px;background:transparent}
+  /* crossword */
+  .crossword{display:grid;grid-template-columns:repeat(5,38px);gap:4px}
+  .cw-cell{width:38px;height:38px;background:#fff;border-radius:4px;display:flex;align-items:center;justify-content:center}
+  .cw-black{background:#111;border-radius:4px}
+  /* jigsaw */
+  .jigsaw{width:320px;height:200px;display:grid;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(5,1fr);gap:2px}
+  .piece{background:linear-gradient(135deg,#fff,#cce7ff);display:flex;align-items:center;justify-content:center;cursor:grab;border-radius:4px}
+  .dragging{opacity:0.5}
+  /* scrabble */
+  .tiles{display:flex;gap:6px;flex-wrap:wrap}
+  .tile{width:48px;height:48px;border-radius:6px;background:#fff;border:1px solid rgba(0,0,0,.08);display:flex;align-items:center;justify-content:center;font-weight:700}
+  footer{margin-top:10px;text-align:center;color:#6b7b8c;font-size:13px}
+  @media (max-width:980px){.app{grid-template-columns:1fr}.right{order:2}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div>
+    <header>
+      <h1>Puzzle Solver — Ultimate Full</h1>
+      <div class="meta">
+        <div class="badge" id="level">Level 1</div>
+        <div class="badge" id="score">Score 0</div>
+        <div class="badge" id="timer">30s</div>
+      </div>
+    </header>
+
+    <div class="card">
+      <div class="small">Choose puzzle type</div>
+      <div class="types" id="types">
+        <button class="type-btn active" data-type="auto">Random</button>
+        <button class="type-btn" data-type="colour">Colour</button>
+        <button class="type-btn" data-type="sudoku">Sudoku (4×4)</button>
+        <button class="type-btn" data-type="crossword">Crossword</button>
+        <button class="type-btn" data-type="jigsaw">Jigsaw</button>
+        <button class="type-btn" data-type="scrabble">Scrabble</button>
+      </div>
+
+      <div class="puzzle-area" id="pArea">
+        <div id="pTitle" class="small">Ready</div>
+        <div id="puzzleBox" style="width:100%"></div>
+        <input type="text" id="answer" placeholder="Type answer / interact on board when required"/>
+        <div class="controls">
+          <button id="submitBtn">Submit</button>
+          <button id="hintBtn" class="ghost">Hint (-1)</button>
+          <button id="nextBtn" style="background:#28a745">Next</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <h3 style="margin:0 0 8px 0">Logs & Tools</h3>
+      <div class="small">Quick actions</div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button id="resetBtn" class="ghost">Reset</button>
+        <button id="exportBtn">Export Leaderboard</button>
+        <button id="importBtn" class="ghost">Import Leaderboard</button>
+        <input type="file" id="importFile" style="display:none" accept="application/json"/>
+      </div>
+      <pre id="log" style="height:120px;overflow:auto;background:#f7fbff;border-radius:8px;padding:8px;margin-top:8px" class="small"></pre>
+    </div>
+  </div>
+
+  <aside class="right">
+    <div class="card">
+      <h3 style="margin:0 0 8px 0">Leaderboard</h3>
+      <div class="leaderboard" id="leaderboard"></div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <input type="text" id="playerName" placeholder="Your name" style="flex:1"/>
+        <button id="saveScore">Save</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h4 style="margin:0 0 10px 0">Settings</h4>
+      <div style="display:flex;gap:8px;align-items:center">
+        <label class="small">Timer (s)</label>
+        <input id="timerInput" type="text" value="30" style="width:60px;padding:6px;border-radius:6px;border:1px solid #ddd"/>
+      </div>
+      <div style="margin-top:8px">
+        <button id="toggleSound" class="ghost">Toggle Sound</button>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<footer class="small">All puzzles run locally. For longer Sudoku or advanced features ask to enable pro mode.</footer>
+
+<script>
+/* --------- Core state & helpers --------- */
+let score=0, level=1, streak=0;
+let timerVal = 30, timerHandle = null;
+let hintCost = 1;
+let forcedType = 'auto';
+const logEl = document.getElementById('log');
+const pTitle = document.getElementById('pTitle');
+const pBox = document.getElementById('puzzleBox');
+const answerInput = document.getElementById('answer');
+const scoreEl = document.getElementById('score');
+const levelEl = document.getElementById('level');
+const timerEl = document.getElementById('timer');
+const timerInput = document.getElementById('timerInput');
+
+function log(msg){ logEl.textContent = new Date().toLocaleTimeString() + ' › ' + msg + "\n" + logEl.textContent; }
+function saveState(){ localStorage.setItem('puzzle_score', score); localStorage.setItem('puzzle_level', level); }
+function updateHUD(){ scoreEl.textContent = 'Score ' + score; levelEl.textContent = 'Level ' + level; }
+function beep(freq=440,d=0.08){ try{ const C=window.AudioContext||window.webkitAudioContext; if(!window._ac) window._ac=new C(); const o=window._ac.createOscillator(); const g=window._ac.createGain(); o.connect(g); g.connect(window._ac.destination); o.frequency.value=freq; g.gain.value=0.02; o.start(); setTimeout(()=>o.stop(), d*1000); }catch(e){}}
+
+/* --------- puzzle pools --------- */
+const colours = [
+  {q:'RED + BLUE -> ?', a:'PURPLE'},
+  {q:'YELLOW + BLUE -> ?', a:'GREEN'},
+  {q:'RED + YELLOW -> ?', a:'ORANGE'},
+  {q:'BLUE + GREEN -> ? (mix)', a:'CYAN'}
+];
+
+const crosswordData = {
+  grid: [
+    ['T','E','A','R','S'],
+    ['A',null,'O',null,'E'],
+    ['P','I','N','E','T'],
+    ['E',null,'C',null,'A'],
+    ['S','E','E','D','S']
+  ],
+  across: {
+    1: {r:0,c:0,len:5,clue:'Liquid from eyes'},
+    3: {r:2,c:0,len:5,clue:'Tree with needles'},
+    5: {r:4,c:0,len:5,clue:'Small plant embryos'}
+  },
+  down: {
+    1: {r:0,c:0,len:5,clue:'Not false'},
+    2: {r:0,c:2,len:5,clue:'Consume hot beverage'}
+  }
+};
+
+/* small word list for scrabble checking (keep local) */
+const wordList = ['TAPE','TEAR','RATE','PART','TAP','PEAR','APPLE','TRAIN','HOUSE','WATER','PHONE','LIGHT','WORLD','TAPE','TARE','PEAT','PEATY','TAP','PATE'];
+
+/* ---------- UI type buttons ---------- */
+document.querySelectorAll('.type-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.type-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    forcedType = btn.dataset.type;
+    newPuzzle();
+  });
+});
+
+/* ---------- Timer ---------- */
+function startTimer(){
+  clearInterval(timerHandle);
+  timerVal = parseInt(timerInput.value)||30;
+  timerEl.textContent = timerVal + 's';
+  timerHandle = setInterval(()=>{
+    timerVal--;
+    timerEl.textContent = timerVal + 's';
+    if(timerVal<=0){ clearInterval(timerHandle); onTimeout(); }
+  }, 1000);
+}
+function stopTimer(){ clearInterval(timerHandle); }
+
+/* ---------- Next / Hint / Submit handlers ---------- */
+document.getElementById('nextBtn').onclick = ()=> { newPuzzle(); };
+document.getElementById('submitBtn').onclick = ()=> { submitAnswer(); };
+document.getElementById('hintBtn').onclick = ()=> { useHint(); };
+document.getElementById('resetBtn').onclick = ()=> { if(confirm('Reset progress?')){ localStorage.clear(); score=0; level=1; updateHUD(); loadLeaderboard(); log('State reset'); } };
+
+/* ---------- Leaderboard functions ---------- */
+function loadLeaderboard(){
+  const data = JSON.parse(localStorage.getItem('puzzle_lb')||'[]');
+  const lb = document.getElementById('leaderboard');
+  lb.innerHTML = '';
+  data.forEach((it,i) => {
+    const div = document.createElement('div'); div.className='row';
+    div.innerHTML = `<div>${i+1}. ${it.name} <span class="small">L${it.level}</span></div><div>${it.score}</div>`;
+    lb.appendChild(div);
+  });
+}
+document.getElementById('saveScore').onclick = ()=>{
+  const name = document.getElementById('playerName').value || 'Player';
+  const curr = JSON.parse(localStorage.getItem('puzzle_lb')||'[]');
+  curr.push({name,score,level,date:new Date().toISOString()});
+  curr.sort((a,b)=>b.score-a.score);
+  localStorage.setItem('puzzle_lb', JSON.stringify(curr.slice(0,50)));
+  loadLeaderboard();
+  log('Score saved for ' + name);
+};
+document.getElementById('exportBtn').onclick = ()=>{
+  const data = localStorage.getItem('puzzle_lb') || '[]';
+  const blob = new Blob([data], {type:'application/json'});
+  const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='leaderboard.json'; a.click(); URL.revokeObjectURL(url);
+};
+document.getElementById('importBtn').onclick = ()=> document.getElementById('importFile').click();
+document.getElementById('importFile').addEventListener('change', e=>{
+  const f = e.target.files[0]; if(!f) return;
+  const r = new FileReader(); r.onload = ev => {
+    try{ JSON.parse(ev.target.result); localStorage.setItem('puzzle_lb', ev.target.result); loadLeaderboard(); log('Imported leaderboard'); } catch(err){ alert('Invalid JSON'); }
+  }; r.readAsText(f);
+});
+
+/* ---------- Puzzle generators ---------- */
+function shuffleWord(w){ return w.split('').sort(()=>Math.random()-0.5).join(''); }
+
+/* Colour puzzle */
+function renderColour(p){
+  pTitle.textContent = 'Colour Mix';
+  pBox.innerHTML = `<div style="font-size:20px">${p.q}</div>`;
+  answerInput.value = '';
+}
+
+/* Sudoku 4x4 generator (simple prefilled templates) */
+const sudokuTemplates = [
+  [[1,0,0,4],[0,4,3,0],[0,3,2,0],[2,0,0,1]],
+  [[0,2,3,0],[4,0,0,2],[3,0,0,4],[0,1,2,0]]
+];
+let currentSudoku = null;
+function renderSudoku(template){
+  pTitle.textContent = 'Sudoku (4×4)';
+  pBox.innerHTML = '';
+  const container = document.createElement('div');
+  container.className = 'sud-grid';
+  currentSudoku = {cells:[], solution:null};
+  // naive solver for template to compute solution (backtracking)
+  const board = JSON.parse(JSON.stringify(template));
+  solveMiniSudoku(board);
+  currentSudoku.solution = board;
+  for(let r=0;r<4;r++){
+    for(let c=0;c<4;c++){
+      const cell = document.createElement('div'); cell.className='cell';
+      const inp = document.createElement('input'); inp.type='text'; inp.maxLength=1;
+      if(template[r][c] !== 0){ inp.value = template[r][c]; inp.disabled=true; inp.style.background='#f4f8ff' }
+      container.appendChild(cell); cell.appendChild(inp);
+      currentSudoku.cells.push(inp);
+    }
+  }
+  pBox.appendChild(container);
+  answerInput.value='';
+}
+function solveMiniSudoku(board){
+  // board is 4x4 with 0 empty - backtracking
+  function valid(b,r,c,v){
+    for(let i=0;i<4;i++){ if(b[r][i]===v) return false; if(b[i][c]===v) return false;}
+    const sr = Math.floor(r/2)*2, sc = Math.floor(c/2)*2;
+    for(let i=sr;i<sr+2;i++) for(let j=sc;j<sc+2;j++) if(b[i][j]===v) return false;
+    return true;
+  }
+  function bt(){
+    for(let i=0;i<4;i++) for(let j=0;j<4;j++) if(board[i][j]===0){
+      for(let v=1;v<=4;v++){ if(valid(board,i,j,v)){ board[i][j]=v; if(bt()) return true; board[i][j]=0; } }
+      return false;
+    }
+    return true;
+  }
+  bt();
+}
+
+/* Crossword renderer: small fixed grid */
+function renderCrossword(){
+  pTitle.textContent = 'Mini Crossword';
+  pBox.innerHTML = '';
+  const grid = crosswordData.grid;
+  const wrapper = document.createElement('div');
+  wrapper.className='crossword';
+  for(let r=0;r<5;r++){
+    for(let c=0;c<5;c++){
+      const val = grid[r][c];
+      const cell = document.createElement('div');
+      cell.className = val? 'cw-cell':'cw-black';
+      if(val){
+        const inp=document.createElement('input'); inp.maxLength=1; inp.style.width='100%'; inp.style.height='100%'; inp.style.border='none'; inp.style.textAlign='center'; inp.value=''; cell.innerHTML=''; cell.appendChild(inp);
+      }
+      wrapper.appendChild(cell);
+    }
+  }
+  pBox.appendChild(wrapper);
+  answerInput.value='';
+}
+
+/* Jigsaw: simple drag-drop of colored rectangles - shuffle them */
+function renderJigsaw(){
+  pTitle.textContent = 'Jigsaw Shuffle';
+  pBox.innerHTML = '';
+  const container = document.createElement('div'); container.className='jigsaw';
+  // create 20 pieces with numbers, shuffle
+  const pieces = Array.from({length:20}, (_,i)=>i+1).sort(()=>Math.random()-0.5);
+  pieces.forEach(num=>{
+    const el = document.createElement('div'); el.className='piece'; el.draggable=true; el.textContent = num;
+    el.style.background = `linear-gradient(135deg, hsl(${num*18},70%,85%), hsl(${num*18},60%,70%))`;
+    el.addEventListener('dragstart', e=>{ e.dataTransfer.setData('text/plain', num); el.classList.add('dragging'); });
+    el.addEventListener('dragend', e=> el.classList.remove('dragging'));
+    el.addEventListener('dragover', e=> e.preventDefault());
+    el.addEventListener('drop', e=>{
+      e.preventDefault();
+      const dragged = e.dataTransfer.getData('text/plain');
+      // swap content
+      const source = container.querySelector('.piece.dragging');
+      if(source){ const tmp = source.textContent; source.textContent = el.textContent; el.textContent = tmp; source.style.background = source.style.background; el.style.background = el.style.background; source.classList.remove('dragging'); }
+    });
+    container.appendChild(el);
+  });
+  pBox.appendChild(container);
+  answerInput.value='';
+}
+
+/* Scrabble mini: give letters and ask for biggest word (check local wordList) */
+function renderScrabble(){
+  pTitle.textContent = 'Scrabble mini';
+  pBox.innerHTML = '';
+  const letters = shuffleArray('AETPRL'); // produce tiles
+  const tiles = document.createElement('div'); tiles.className='tiles';
+  letters.forEach(l=>{
+    const t = document.createElement('div'); t.className='tile'; t.textContent = l; tiles.appendChild(t);
+  });
+  pBox.appendChild(tiles);
+  answerInput.value='';
+  window.currentAnswer = findBestWord(letters);
+}
+
+/* Colour, Sudoku, Crossword, Jigsaw, Scrabble are supported above
+   We'll implement a random dispatcher */
+function newPuzzle(){
+  stopTimer();
+  const type = forcedType === 'auto' ? pickRandomType() : forcedType;
+  answerInput.value='';
+  window.currentAnswer = null;
+  if(type==='colour'){ const c = rand(colours); renderColour(c); window.currentAnswer = c.a; }
+  else if(type==='sudoku'){ const t = rand(sudokuTemplates); renderSudoku(t); window.currentAnswer = null; }
+  else if(type==='crossword'){ renderCrossword(); window.currentAnswer = null; }
+  else if(type==='jigsaw'){ renderJigsaw(); window.currentAnswer = null; }
+  else if(type==='scrabble'){ renderScrabble(); }
+  else { // fallback word puzzle
+    const w = shuffleWord(rand(['APPLE','TRAIN','PHONE','LIGHT'])); pTitle.textContent='Word Scramble'; pBox.innerHTML=`<div style="font-size:22px">${w}</div>`; window.currentAnswer = w.split('').sort().join('').toUpperCase();
+  }
+  pTitle.scrollIntoView({behavior:'smooth'});
+  startTimer();
+  log('New puzzle: ' + (forcedType==='auto'? 'random' : forcedType));
+}
+function pickRandomType(){ const pool=['colour','sudoku','crossword','jigsaw','scrabble','colour','scrabble','sudoku']; return rand(pool); }
+
+function rand(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+function shuffleArray(s){ return s.split('').sort(()=>Math.random()-0.5); }
+
+/* ---------- submission & hint ---------- */
+function submitAnswer(){
+  const ans = (answerInput.value||'').trim().toUpperCase();
+  if(!ans && !window.currentAnswer){ alert('This puzzle requires board interaction — use on-screen controls.'); return; }
+  if(window.currentAnswer){
+    if(ans === window.currentAnswer || window.currentAnswer.includes(ans)){
+      score++; updateHUD(); saveState(); beep(880); log('Correct answer: '+ans); newPuzzle();
+    } else { beep(220); alert('Incorrect — try again'); log('Wrong attempt: '+ans); }
+  } else {
+    // Check board-based puzzles (sudoku / crossword / jigsaw)
+    // Sudoku check:
+    if(document.querySelector('.sud-grid')){ if(checkSudokuSolution()){ score++; updateHUD(); saveState(); alert('Sudoku solved!'); newPuzzle(); } else { alert('Sudoku not correct yet.'); } }
+    else if(document.querySelector('.crossword')){ if(checkCrossword()){ score++; updateHUD(); saveState(); alert('Crossword looks good!'); newPuzzle(); } else { alert('Crossword incomplete or incorrect.'); } }
+    else { alert('No text answer expected. Interact with the board.'); }
+  }
+}
+function useHint(){
+  if(score < hintCost){ alert('Not enough score for a hint'); return; }
+  score -= hintCost; updateHUD(); saveState();
+  // give contextual hint
+  if(document.querySelector('.sud-grid')){ alert('Hint: look at each 2×2 box — use process of elimination.'); }
+  else if(document.querySelector('.crossword')){ alert('Hint: try the across clues, small words are easier.'); }
+  else if(document.querySelector('.jigsaw')){ alert('Hint: group pieces by color tone / number patterns.'); }
+  else if(document.querySelector('.tiles')){ alert('Hint: try forming common roots: TAP, TAPE, RATE'); }
+  else { alert('Hint: think of colour mixing fundamentals.'); }
+}
+
+/* ---------- checkers ---------- */
+function checkSudokuSolution(){
+  const inputs = Array.from(document.querySelectorAll('.sud-grid input'));
+  const m = [];
+  for(let r=0;r<4;r++){ m.push([]); for(let c=0;c<4;c++){ const val = inputs[r*4 + c].value.trim(); m[r].push(val===''?0:parseInt(val)); } }
+  // check rows cols boxes
+  for(let i=0;i<4;i++){
+    const rset = new Set(), cset = new Set();
+    for(let j=0;j<4;j++){
+      if(m[i][j]<1 || m[i][j]>4 || rset.has(m[i][j])) return false; rset.add(m[i][j]);
+      if(m[j][i]<1 || m[j][i]>4 || cset.has(m[j][i])) return false; cset.add(m[j][i]);
+    }
+  }
+  // boxes
+  for(let br=0;br<2;br++) for(let bc=0;bc<2;bc++){
+    const s = new Set();
+    for(let r=br*2;r<br*2+2;r++) for(let c=bc*2;c<bc*2+2;c++){
+      if(s.has(m[r][c])) return false; s.add(m[r][c]);
+    }
+  }
+  return true;
+}
+
+function checkCrossword(){
+  // compare against crosswordData grid letters where not null
+  const cells = Array.from(pBox.querySelectorAll('.crossword input'));
+  let idx = 0;
+  for(let r=0;r<5;r++){
+    for(let c=0;c<5;c++){
+      if(crosswordData.grid[r][c]){
+        const ch = cells[idx++].value.trim().toUpperCase();
+        if(ch !== crosswordData.grid[r][c]) return false;
+      }
+    }
+  }
+  return true;
+}
+
+/* ---------- Scrabble helper ---------- */
+function findBestWord(letters){
+  const avail = letters.join('');
+  let best = '';
+  for(const w of wordList){
+    const up = w.toUpperCase();
+    if(canForm(up, avail) && up.length > best.length) best = up;
+  }
+  log('Scrabble target best: ' + best);
+  return best;
+}
+function canForm(word, letters){
+  const arr = letters.split('');
+  for(const ch of word){
+    const i = arr.indexOf(ch);
+    if(i===-1) return false; arr.splice(i,1);
+  }
+  return true;
+}
+
+/* ---------- helpers for UI ---------- */
+function updateHUD(){ document.getElementById('score').textContent = 'Score ' + score; document.getElementById('level').textContent = 'Level ' + level; }
+function init(){
+  loadLeaderboard();
+  updateHUD();
+  newPuzzle();
+}
+function onTimeout(){ alert('Time up!'); newPuzzle(); }
+
+/* keyboard submit on enter */
+answerInput.addEventListener('keydown', e=>{ if(e.key==='Enter'){ submitAnswer(); } });
+
+/* initial binding for start/pause */
+document.getElementById('startTimerBtn')?.addEventListener('click', ()=>startTimer());
+document.getElementById('pauseTimerBtn')?.addEventListener('click', ()=>stopTimer());
+document.getElementById('toggleSound').addEventListener('click', ()=>{ window._soundOn = !window._soundOn; alert('Sound toggled'); })
+
+/* small utility to shuffle characters for fallback word puzzle */
+function shuffleWord(w){ return w.split('').sort(()=>Math.random()-0.5).join(''); }
+
+/* init app */
+init();
+
+</script>
+</body>
+</html>
